@@ -1,6 +1,7 @@
 ####################################################################################
 ## Dehnel's Phenomenon meta-analysis
-## created 13 Dec 2023; last updated 13 Feb 2024
+## B.S McLean et al. "Seasonal body size plasticity and the generality of Dehnel’s Phenomenon in Sorex shrews."
+## created 13 Dec 2023; last updated 20 jan 2025
 ####################################################################################
 
 library(ggplot2)
@@ -9,34 +10,44 @@ library(ggfortify)
 library(viridis)
 library(ape)
 library(phytools)
-library(lme4)
 library(rstanarm)
 library(loo)
+
 
 #########################################
 # read all-Sorex data set
 #########################################
 
-sorex <- read.csv("~/Library/CloudStorage/OneDrive-UNCG/Projects/Sorex-Dehnels/_data_/_data-extractions_and_metadata_bioclimate_20240328_.csv")
+sorex <- read.csv("data-extractions_and_metadata.csv")
+
 
 #########################################
 # analysis of paired climate data
 #########################################
 
-# PCA of climate vars from all records (including cinereus); append to data file
+## PCA of climate vars from all records (including cinereus); 
+## append to data file
 clim.fields <- colnames(sorex)[grep("bio", colnames(sorex))]
 sorex.climpca <- prcomp(sorex[,clim.fields], center = T, scale. = T) # scaling all vars to unit var, only analyzing unique localities
 sorex <- data.frame(sorex, sorex.climpca$x[, 1:4], scale(sorex.climpca$x[, 1:4]))
 colnames(sorex) <- gsub(".1", ".scaled", colnames(sorex), fixed = T)
 
-#sorex.climpca$rotation
-#abs(sorex.climpca$rotation[,1])[order(abs(sorex.climpca$rotation[,1]),decreasing = T)] #PC1 loadings
-#abs(sorex.climpca$rotation[,2])[order(abs(sorex.climpca$rotation[,2]),decreasing = T)] #PC2 loadings
-#summary(sorex.climpca) #screedata
-#biplot(sorex.climpca, c(1,2)) #standard biplot
+## PC1 loadings
+#abs(sorex.climpca$rotation[,1])[order(abs(sorex.climpca$rotation[,1]),decreasing = T)] 
+
+## PC2 loadings
+#abs(sorex.climpca$rotation[,2])[order(abs(sorex.climpca$rotation[,2]),decreasing = T)] 
+
+## PC3 loadings
+#abs(sorex.climpca$rotation[,3])[order(abs(sorex.climpca$rotation[,3]),decreasing = T)] 
+
+## screedata, standard biplot
+#summary(sorex.climpca)
+#biplot(sorex.climpca, c(1,2)) 
+
 
 #########################################
-# PLOTS of climate data
+# PLOTS of climate ordinations
 #########################################
 
 # create a custom color and shape palette
@@ -78,11 +89,12 @@ autoplot(
 	) + 
 	theme_classic()
 
+
 #########################################
-# create datasets for different models
+# subset Sorex data for different models
 #########################################
 
-# mass-specific and BCH-specific datasets
+## create mass-specific and BCH-specific datasets
 # MASS
 sorex.mass <- sorex[which(is.na(sorex$massing_summer.winter_decrease_percent) == F),]
 # set obs without a Dehnel's effect (ie positive change between summer and winter) to delta = 0
@@ -97,12 +109,13 @@ sorex.bch <- sorex[which(is.na(sorex$BCH_summer.winter_decrease_percent) == F),]
 sorex.bch.Soar <- sorex.bch[which(sorex.bch$acceptedScientificName == "Sorex araneus"),]
 sorex.bch.noSoar <- sorex.bch[which(sorex.bch$acceptedScientificName != "Sorex araneus"),]
 
+
 #########################################
-# analysis of phylogenetic signal
+# tests of phylogenetic signal
 #########################################
 
-## read tree and match taxa
-mammal.tre <- read.nexus("~/Library/CloudStorage/OneDrive-UNCG/Projects/Sorex-Dehnels/_data_/mammal-tree.tre")
+## read tree and match taxon/tip names
+mammal.tre <- read.nexus("mammal-tree.tre") (Upham et al. 2019, 	https://doi.org/10.1371/journal.pbio.3000494, accessed at https://data.vertlife.org/)
 sorex.spp <- gsub(" ", "_", unique(sorex$acceptedScientificName))
 sorex.spp <- paste(sorex.spp, "SORICIDAE_EULIPOTYPHLA", sep = "_")
 
@@ -113,11 +126,20 @@ sorex.spp <- paste(sorex.spp, "SORICIDAE_EULIPOTYPHLA", sep = "_")
 sorex.tre <- keep.tip(mammal.tre, sorex.spp)
 sorex.tre$tip.label <- gsub("_SORICIDAE_EULIPOTYPHLA", "", sorex.tre$tip.label)
 sorex.tre$tip.label <- gsub("_", " ", sorex.tre$tip.label)
-plot(ladderize(sorex.tre, right = F))
 
-# MASS - test of phylogenetic signal
-mass.avg <- aggregate(massing_summer.winter_decrease_percent ~ acceptedScientificName, sorex.mass, FUN = mean)[,2]
-names(mass.avg) <- aggregate(massing_summer.winter_decrease_percent ~ acceptedScientificName, sorex.mass, FUN = mean)[,1]
+## MASS - test of phylogenetic signal
+mass.avg <- aggregate(
+	massing_summer.winter_decrease_percent ~ 
+	acceptedScientificName, 
+	sorex.mass, 
+	FUN = mean
+	)[,2]
+names(mass.avg) <- aggregate(
+	massing_summer.winter_decrease_percent ~ 
+	acceptedScientificName, 
+	sorex.mass, 
+	FUN = mean
+	)[,1]
 phylosig(
 	tree = keep.tip(sorex.tre, intersect(sorex.tre$tip.label, names(mass.avg))),
 	x = mass.avg,
@@ -126,9 +148,19 @@ phylosig(
 	)
 #contMap(tree = ladderize(keep.tip(sorex.tre, intersect(sorex.tre$tip.label, names(mass.avg))), F), x = mass.avg)
 
-# BRAINCASEHEIGHT - test of phylogenetic signal
-bch.avg <- aggregate(BCH_summer.winter_decrease_percent ~ acceptedScientificName, sorex.bch, FUN = mean)[,2]
-names(bch.avg) <- aggregate(BCH_summer.winter_decrease_percent ~ acceptedScientificName, sorex.bch, FUN = mean)[,1]
+## BRAINCASEHEIGHT - test of phylogenetic signal
+bch.avg <- aggregate(
+	BCH_summer.winter_decrease_percent ~ 
+	acceptedScientificName, 
+	sorex.bch, 
+	FUN = mean
+	)[,2]
+names(bch.avg) <- aggregate(
+	BCH_summer.winter_decrease_percent ~ 
+	acceptedScientificName, 
+	sorex.bch, 
+	FUN = mean
+	)[,1]
 phylosig(
 	tree = keep.tip(sorex.tre, intersect(sorex.tre$tip.label, names(bch.avg))),
 	x = bch.avg,
@@ -142,7 +174,8 @@ phylosig(
 # Bayesian linear/mixed models
 #########################################
 
-## MASS ##
+## MASS REGRESSIONS ##
+
 # full MASS model with all species/observations
 mixmod.mass.1pc <- stan_lmer(
 	massing_summer.winter_decrease_percent ~ 
@@ -152,16 +185,16 @@ mixmod.mass.1pc <- stan_lmer(
 mixmod.mass.2pc <- update(mixmod.mass.1pc, formula = . ~ PC1.scaled + PC2.scaled + (1 | acceptedScientificName))
 mixmod.mass.3pc <- update(mixmod.mass.2pc, formula = . ~ PC1.scaled + PC2.scaled + PC3.scaled + (1 | acceptedScientificName))
 
-# compare models containing PC1-PC3
-loo1 <- loo(mixmod.mass.1pc, k_threshold = 0.7)
-loo2 <- loo(mixmod.mass.2pc, k_threshold = 0.7)
-loo3 <- loo(mixmod.mass.3pc, k_threshold = 0.7)
-loo_compare(loo1, loo2, loo3) # model with only PC1 preferred, justifies use of only PC1 in further models
+# comparison of models containing PC1-PC3
+loo1 <- rstanarm::loo(mixmod.mass.1pc, k_threshold = 0.7)
+loo2 <- rstanarm::loo(mixmod.mass.2pc, k_threshold = 0.7)
+loo3 <- rstanarm::loo(mixmod.mass.3pc, k_threshold = 0.7)
+rstanarm::loo_compare(list(loo1, loo2, loo3)) # model with only PC1 preferred, justifies use of only PC1 in further models
 
-# extract posterior estimates of coefs from full model
+# extract posterior estimates of coefs from full (preferred) model
 mixmod.mass.1pc.coef <- as.data.frame(mixmod.mass.1pc)[,1:2]
 
-# MASS model for S. araneus
+## MASS model for S. araneus only
 mixmod.mass.soar <- stan_glm(
 	massing_summer.winter_decrease_percent ~ 
 	PC1.scaled, 
@@ -169,7 +202,7 @@ mixmod.mass.soar <- stan_glm(
 	)
 mixmod.mass.soar.coef <- as.data.frame(mixmod.mass.soar)[,1:2]
 
-# MASS model for non-S. araneus
+## MASS model for non-S. araneus only
 mixmod.mass.nosoar <- stan_lmer(
 	massing_summer.winter_decrease_percent ~ 
 	PC1.scaled + 
@@ -180,7 +213,8 @@ mixmod.mass.nosoar.coef <- as.data.frame(mixmod.mass.nosoar)[,1:2]
 
 colnames(mixmod.mass.1pc.coef) <- colnames(mixmod.mass.soar.coef) <- colnames(mixmod.mass.nosoar.coef) <- c("intercept", "PC1.scaled")
 
-## BRAINCASE HEIGHT ##
+
+## BRAINCASE HEIGHT REGRESSIONS ##
 
 # full BCH model with all species/observations
 mixmod.bch.1pc <- stan_lmer(
@@ -193,10 +227,10 @@ mixmod.bch.2pc <- update(mixmod.bch.1pc, formula = . ~ PC1.scaled + PC2.scaled +
 mixmod.bch.3pc <- update(mixmod.bch.2pc, formula = . ~ PC1.scaled + PC2.scaled + PC3.scaled + (1 | acceptedScientificName))
 
 # compare models with PC1-PC3
-loo1 <- loo(mixmod.bch.1pc, k_threshold = 0.7)
-loo2 <- loo(mixmod.bch.2pc, k_threshold = 0.7)
-loo3 <- loo(mixmod.bch.3pc, k_threshold = 0.7)
-loo_compare(loo1, loo2, loo3)
+loo1 <- rstanarm::loo(mixmod.bch.1pc, k_threshold = 0.7)
+loo2 <- rstanarm::loo(mixmod.bch.2pc, k_threshold = 0.7)
+loo3 <- rstanarm::loo(mixmod.bch.3pc, k_threshold = 0.7)
+rstanarm::loo_compare(loo1, loo2, loo3)
 
 # extract posterior estimates of coefs from full model
 mixmod.bch.1pc.coef <- as.data.frame(mixmod.bch.1pc)[,1:2]
@@ -220,10 +254,32 @@ mixmod.bch.nosoar.coef <- as.data.frame(mixmod.bch.nosoar)[,1:2]
 
 colnames(mixmod.bch.1pc.coef) <- colnames(mixmod.bch.soar.coef) <- colnames(mixmod.bch.nosoar.coef) <- c("intercept", "PC1.scaled")
 
+
 #########################################
-# analyze posterior predictive intervals 
-# for SOCI observations
+# checks for spatial autocorrelation 
+# in full model residuals
 #########################################
+
+coords.mass <- cbind(sorex.mass$decimallongitude, sorex.mass$decimallatitude)
+knn.mass <- knearneigh(coords.mass, longlat = TRUE)
+neighbors <- knn2nb(knn.mass, row.names = NULL, sym = FALSE)
+neighbors2 <- nb2listw(neighbors, glist=NULL, style="C", zero.policy=TRUE)
+moran.test(mixmod.mass.1pc$resid, neighbors2)
+moran.plot(mixmod.mass.1pc$resid, neighbors2)
+
+coords.bch <- cbind(sorex.bch$decimallongitude, sorex.bch$decimallatitude)
+knn.bch <- knearneigh(coords.bch, longlat = TRUE)
+neighbors <- knn2nb(knn.bch, row.names = NULL, sym = FALSE)
+neighbors2 <- nb2listw(neighbors, glist=NULL, style="C", zero.policy=TRUE)
+moran.test(mixmod.bch.1pc$resid, neighbors2)
+
+
+#########################################
+# posterior predictive models 
+# testing predictions for new SOCI obs
+#########################################
+
+## MASS PREDICTIONS ##
 
 # create new MASS model but removing SOCI
 mixmod.mass.1pc.nosoci <- stan_lmer(
@@ -266,7 +322,8 @@ arrows(
 	length = 0.2
 	)
 	
-	
+## BRIANCASE HEIGHT PREDICTIONS ##
+
 # create new BRAINCASE HEIGHT model but removing SOCI
 mixmod.bch.1pc.nosoci <- stan_lmer(
 	BCH_summer.winter_decrease_percent ~ 
@@ -309,12 +366,16 @@ arrows(
 	length = 0.2
 	)
 
+
 #########################################
-# analyze inter/intra predictive intervals 
+# posterior predictive models 
+# testing predictions for SOAR obs
 #########################################
 
 # do interspecific data predict intraspecific data (for S. araneus)?
-# MASS
+
+## MASS PREDICTIONS ##
+
 mass.nosoar.pred.soar <- predictive_interval(
   object = mixmod.mass.nosoar,
   newdata = sorex.mass.Soar[order(sorex.mass.Soar$decimallatitude),],
@@ -350,7 +411,9 @@ segments(
 	)
 points(1:nrow(mass.nosoar.pred.soar),sorex.mass.Soar[order(sorex.mass.Soar$decimallatitude),]$massing_summer.winter_decrease_percent, col = "red", pch = 16)
 
-# BRAINCASE HEIGHT
+
+## BRAINCASE HEIGHT PREDICTIONS ##
+
 bch.nosoar.pred.soar <- predictive_interval(
   object = mixmod.bch.nosoar,
   newdata = sorex.bch.Soar[order(sorex.bch.Soar$decimallatitude),],
@@ -386,122 +449,20 @@ segments(
 	)
 points(1:nrow(bch.nosoar.pred.soar),sorex.bch.Soar[order(sorex.bch.Soar$decimallatitude),]$BCH_summer.winter_decrease_percent, col = "red", pch = 16)
 
-#########################################
-# PLOT of the full MASS model
-#########################################
-
-spp.col <- viridis(length(unique(sorex$acceptedScientificName)), option = "mako")
-names(spp.col) <- unique(sorex$acceptedScientificName)[order(unique(sorex$acceptedScientificName))]
-spp.col[length(spp.col)-1] <- "#00CC99"
-spp.col[length(spp.col)] <- "#00FFCC"
-
-ggplot(data = sorex.mass, 
-	aes(x = PC1.scaled, y = massing_summer.winter_decrease_percent,
-	colour = factor(acceptedScientificName),
-	shape = factor(continent)
-	)
-	) +
-  # Plot a random sample of rows as gray semi-transparent lines
-  geom_abline(
-    data = mixmod.mass.1pc.coef[sample(nrow(mixmod.mass.1pc.coef), 1000),], 
-	aes(intercept = intercept, slope = PC1.scaled), 
-    alpha = 0.1,
-    col = "grey"
-	) + 
-  # Plot median prediction
-  geom_abline(
-	aes(intercept = fixef(mixmod.mass.1pc)[1], slope = fixef(mixmod.mass.1pc)[2]), 
-    col = "black"
-	) + 
-	geom_point(size = 3, alpha = 1) + 
-	scale_colour_manual(values = spp.col) +
-	theme_bw()	
-
-#########################################
-# PLOT of the full BRAINCASE HEIGHT model
-#########################################
-
-ggplot(data = sorex.bch, 
-	aes(x = PC1.scaled, y = BCH_summer.winter_decrease_percent,
-	colour = factor(acceptedScientificName),
-	shape = factor(continent)
-	)
-	) +
-  # Plot a random sample of rows as gray semi-transparent lines
-  geom_abline(
-    data = mixmod.bch.1pc.coef[sample(nrow(mixmod.bch.1pc.coef), 1000),], 
-	aes(intercept = intercept, slope = PC1.scaled), 
-    alpha = 0.1,
-    col = "grey"
-	) + 
-  # Plot median prediction
-  geom_abline(
-	aes(intercept = fixef(mixmod.bch.1pc)[1], slope = fixef(mixmod.bch.1pc)[2]), 
-    col = "black"
-	) + 
-	geom_point(size = 3, alpha = 1) + 
-	scale_colour_manual(values = spp.col) +
-	theme_bw()	
-	
-#########################################
-# get a full species legend
-#########################################
-
-ggplot(data = sorex, 
-	aes(x = PC1, y = PC2,
-	colour = factor(acceptedScientificName),
-	shape = factor(continent))
-	) +
-	geom_point(alpha = .8, size = 3) + 
-	scale_colour_manual(values =  spp.col) +
-	theme_bw()
 
 
-#########################################
-# PLOTS of MASS~climate slopes inter/intra
-#########################################
 
-post.mass <- rbind(
-	data.frame(
-		post = mixmod.mass.1pc.coef[,2], 
-		mod = rep("full", nrow(mixmod.bch.1pc.coef))
-		),
-	data.frame(
-		post = mixmod.mass.soar.coef[,2], 
-		mod = rep("soar", nrow(mixmod.mass.soar.coef))
-		),
-	data.frame(
-		post = mixmod.mass.nosoar.coef[,2], 
-		mod = rep("nosoar", nrow(mixmod.mass.nosoar.coef))
-		)
-	)
 
-# quick visualize of all 3 posteriors
-ggplot(post.mass, aes(post, fill = mod, color = mod)) +
-	geom_histogram(position="identity", alpha = 0.3) + 
-	theme_classic()
 
-#########################################
-# PLOTS of BCH~climate slopes inter/intra
-#########################################
 
-post.bch <- rbind(
-	data.frame(
-		post = mixmod.bch.1pc.coef[,2], 
-		mod = rep("full", nrow(mixmod.bch.1pc.coef))
-		),
-	data.frame(
-		post = mixmod.bch.soar.coef[,2], 
-		mod = rep("soar", nrow(mixmod.bch.soar.coef))
-		),
-	data.frame(
-		post = mixmod.bch.nosoar.coef[,2], 
-		mod = rep("nosoar", nrow(mixmod.bch.nosoar.coef))
-		)
-	)
 
-# quick visualize of all 3 posteriors
-ggplot(post.bch, aes(post, fill = mod, color = mod)) +
-	geom_histogram(position="identity", alpha = 0.3) + 
-	theme_classic()
+
+
+
+
+
+
+
+
+
 
