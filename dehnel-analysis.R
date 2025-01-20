@@ -1,24 +1,30 @@
 ####################################################################################
 ## Dehnel's Phenomenon - Sorex cinereus analysis
-## created 13 Dec 2023; last updated 13 Feb 2024
+## B.S McLean et al. "Seasonal body size plasticity and the generality of Dehnel’s Phenomenon in Sorex shrews."
+## created 13 Dec 2023; last updated 20 jan 2025
 ####################################################################################
 
 library(ggplot2)
 
+
 #########################################
 # read specimen data & metadata
 #########################################
-soci.df <- read.csv("SOCI_metadata_crania_femora_ageclass.csv")
+
+soci.df <- read.csv("SOCI_metadata_crania_femora_ageclass-v2.csv")
 soci.df$season <- factor(soci.df$season, levels = c("spring", "summer", "fall", "winter"))
 soci.df$ageclass <- factor(soci.df$ageclass, levels = c("subad_sp","subad_su","subad_fa","subad_wi","ad_sp","ad_su","ad_fa","ad_wi"))
 
+
 #########################################
-# averages by season
+# average traits by season
 #########################################
 
-aggregate(soci.df[,c("weight_g")] ~ soci.df$season, FUN = mean)
-aggregate(soci.df[,c("BCH")] ~ soci.df$season, FUN = mean)
-aggregate(soci.df[,c("TL")] ~ soci.df$season, FUN = mean)
+aggregate(soci.df[,c("weight_g")] ~ soci.df$season, FUN = mean) #mass
+aggregate(soci.df[,c("BCH")] ~ soci.df$season, FUN = mean) #braincase height
+aggregate(soci.df[,c("TL")] ~ soci.df$season, FUN = mean) # femur length
+aggregate((soci.df$TL/soci.df$total_length_mm) ~ soci.df$season, FUN = mean)
+
 
 #########################################
 # ANOVAs by season
@@ -26,10 +32,16 @@ aggregate(soci.df[,c("TL")] ~ soci.df$season, FUN = mean)
 
 weight.aov <- aov(weight_g ~ ageclass, data = soci.df)
 TukeyHSD(weight.aov)
+bodycond.aov <- aov(weight_g/total_length_mm ~ ageclass, data = soci.df)
+TukeyHSD(bodycond.aov)
 bch.aov <- aov(BCH ~ ageclass, data = soci.df)
 TukeyHSD(bch.aov)
 tl.aov <- aov(TL ~ ageclass, data = soci.df)
 TukeyHSD(tl.aov)
+
+tl.aov <- aov(TL/weight_g ~ ageclass, data = soci.df)
+TukeyHSD(tl.aov)
+summary(lm(soci.df$TL ~ soci.df$weight_g))
 
 
 #########################################
@@ -37,10 +49,18 @@ TukeyHSD(tl.aov)
 #########################################
 seas.cols <- c("#E2D200", "#E58601", "#B40F20", "#46ACC8")
 
+## MASS BOXPLOTS ##
+
+ggplot(
+	soci.df, 
+	aes(x = body_length_mm, y = TL, colour = ageclass, fill = ageclass)
+	) + 
+geom_point()
+
 # body mass
 ggplot(
 	soci.df, 
-	aes(x = ageclass, y = weight_g, colour = season, fill = season)
+	aes(x = ageclass, y = weight_g/total_length_mm, colour = season, fill = season)
 	) + 
 geom_boxplot(
 	alpha = 0.1
@@ -52,7 +72,8 @@ scale_colour_manual(values = seas.cols) +
 scale_fill_manual(values = seas.cols) +
 theme_bw()
 	
-# braincase heigh ratio
+## BRAINCASE HEIGHT BOXPLOTS ##
+
 ggplot(
 	soci.df, 
 	aes(x = ageclass, y = (BCH*2)/(SKL+BCW), colour = season, fill = season)
@@ -67,10 +88,11 @@ scale_colour_manual(values = seas.cols) +
 scale_fill_manual(values = seas.cols) +
 theme_bw()
 
-# femur length
+## FEMUR LENGTH BOXPLOTS ##
+
 ggplot(
 	soci.df, 
-	aes(x = ageclass, y = TL, colour = season, fill = season)
+	aes(x = ageclass, y = TL/total_length_mm, colour = season, fill = season)
 	) + 
 geom_boxplot(
 	alpha = 0.1
